@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Workout Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap">
+<style>
+:root {
+  --paper: #F1F2EF;
+  --field: #FFFFFF;
+  --ink: #1C2127;
+  --graphite: #5E6670;
+  --rule: #D3D6D1;
+  --plate: #C8322B;
+  --lift: #1B7A43;
+  --lift-soft: #E1F0E6;
+  --on-ink: #F1F2EF;
+  --on-lift: #FFFFFF;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", "Helvetica Neue", Arial, sans-serif;
+  --text: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  color-scheme: light;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #1D2228; --field: #272D34; --ink: #ECEEF0; --graphite: #9AA3AD; --rule: #3A424B;
+    --plate: #F0564B; --lift: #3DBE74; --lift-soft: #1F3A2B; --on-ink: #1D2228; --on-lift: #0F2418;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #1D2228; --field: #272D34; --ink: #ECEEF0; --graphite: #9AA3AD; --rule: #3A424B;
+  --plate: #F0564B; --lift: #3DBE74; --lift-soft: #1F3A2B; --on-ink: #1D2228; --on-lift: #0F2418;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+*, *::before, *::after { box-sizing: inherit; }
+html { height: 100%; scroll-padding-top: env(safe-area-inset-top, 0px); -webkit-text-size-adjust: 100%; }
+body { margin: 0; min-height: 100%; background: var(--paper); color: var(--ink); font-family: var(--text); font-size: 16px; line-height: 1.4; -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button:disabled { opacity: .3; cursor: default; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.wrap { max-width: 560px; margin: 0 auto; padding-left: 16px; padding-right: 16px; }
+main.wrap { padding-bottom: 56px; }
+body.resting main.wrap { padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
+
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--paper); border-bottom: 1px solid var(--rule); }
+.topbar-in { display: flex; align-items: center; min-height: 50px; gap: 8px; }
+.viewtabs { display: flex; margin-left: -10px; }
+.viewtab { background: none; border: 0; padding: 14px 10px 12px; font-family: var(--display); font-weight: 600; font-size: 19px; line-height: 1; color: var(--graphite); position: relative; }
+.viewtab[aria-current="page"] { color: var(--ink); }
+.viewtab[aria-current="page"]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: 3px; height: 3px; background: var(--ink); }
+.status { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--graphite); white-space: nowrap; }
+.status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--graphite); }
+.status[data-state="saved"]::before { background: var(--lift); }
+.status[data-state="saving"]::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--graphite); }
+.status[data-state="error"] { color: var(--plate); }
+.status[data-state="error"]::before { background: var(--plate); }
+
+.hero { padding: 22px 0 4px; }
+.hero h1, .page-title { font-family: var(--display); font-weight: 700; font-size: clamp(46px, 13vw, 68px); line-height: .92; letter-spacing: -0.015em; margin: 0; }
+.dateline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin-top: 10px; }
+.date-text { font-weight: 600; }
+.linkbtn { background: none; border: 0; padding: 4px 0; color: var(--graphite); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; font-size: 15px; }
+.summary { margin: 6px 0 0; color: var(--graphite); font-size: 15px; }
+.daynote { margin: 6px 0 0; font-size: 15px; font-weight: 500; }
+
+.days { display: flex; gap: 6px; overflow-x: auto; margin: 16px -16px 6px; padding: 0 16px 12px; scrollbar-width: none; }
+.days::-webkit-scrollbar { display: none; }
+.daychip { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; background: transparent; border: 1.5px solid var(--ink); border-radius: 4px; padding: 6px 11px 7px; text-align: left; }
+.dc-name { font-family: var(--display); font-weight: 600; font-size: 18px; line-height: 1.05; white-space: nowrap; }
+.dc-sub { font-size: 12px; color: var(--graphite); white-space: nowrap; }
+.daychip[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); }
+.daychip[aria-pressed="true"] .dc-sub { color: var(--on-ink); opacity: .75; }
+
+.ex { border-top: 2px solid var(--ink); padding: 14px 0 20px; }
+.ex-head { display: flex; align-items: flex-start; gap: 12px; }
+.ex-title { flex: 1; min-width: 0; }
+.ex-name { font-family: var(--display); font-weight: 600; font-size: 25px; line-height: 1.05; margin: 2px 0 0; }
+.ex-sub { margin: 3px 0 0; font-size: 14px; color: var(--graphite); }
+.edit-tools { display: flex; gap: 6px; }
+.iconbtn { flex: 0 0 auto; min-width: 40px; height: 40px; padding: 0; display: inline-grid; place-items: center; background: transparent; border: 1.5px solid var(--rule); border-radius: 6px; color: var(--ink); }
+.iconbtn.danger { color: var(--plate); }
+.iconbtn.armed { background: var(--plate); border-color: var(--plate); color: #fff; padding: 0 12px; font-weight: 600; font-size: 15px; }
+.last { margin: 8px 0 12px; font-size: 14.5px; color: var(--graphite); }
+.last b { color: var(--ink); font-weight: 600; }
+
+.setrow { display: grid; grid-template-columns: 40px minmax(0,1fr) minmax(0,1fr) 52px; gap: 8px; align-items: center; margin-bottom: 8px; }
+.setrow.single { grid-template-columns: 40px minmax(0,1fr) 52px; }
+.setrow.head { margin-bottom: 4px; font-size: 12.5px; color: var(--graphite); }
+.setrow.head span { text-align: center; }
+.setno { height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: var(--display); color: var(--graphite); line-height: 1; }
+.setno .n { font-size: 21px; font-weight: 600; }
+.setno .tag { font-size: 12px; font-weight: 700; margin-top: 2px; min-height: 13px; }
+.setno.up .tag { color: var(--lift); }
+.setno.pr .n { color: var(--plate); }
+.setno.pr .tag { color: #fff; background: var(--plate); padding: 1px 4px; border-radius: 2px; }
+.num { width: 100%; height: 48px; background: var(--field); border: 1.5px solid var(--rule); border-radius: 6px; padding: 0 6px; text-align: center; font-family: var(--display); font-weight: 600; font-size: 25px; color: var(--ink); font-variant-numeric: tabular-nums; -webkit-appearance: none; appearance: none; }
+.num::placeholder { color: var(--graphite); opacity: .5; font-weight: 500; }
+.num:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.setrow.done .num { border-color: var(--lift); background: var(--lift-soft); }
+.check { height: 48px; width: 100%; display: grid; place-items: center; background: var(--field); border: 1.5px solid var(--rule); border-radius: 6px; color: var(--graphite); }
+.check svg { opacity: .4; }
+.check[aria-pressed="true"] { background: var(--lift); border-color: var(--lift); color: var(--on-lift); }
+.check[aria-pressed="true"] svg { opacity: 1; }
+.ex-actions { display: flex; flex-wrap: wrap; gap: 0 20px; }
+.textbtn { background: none; border: 0; padding: 8px 0; font-size: 15px; font-weight: 600; color: var(--ink); }
+.textbtn.dim { color: var(--graphite); font-weight: 500; }
+.textbtn.danger, .textbtn.armed { color: var(--plate); }
+.textbtn.armed { font-weight: 700; }
+.field { width: 100%; min-height: 44px; background: var(--field); border: 1.5px solid var(--rule); border-radius: 6px; padding: 9px 12px; font-size: 16px; color: var(--ink); }
+.field:focus { outline: none; border-color: var(--ink); }
+.note { margin-top: 6px; }
+.date-field { width: auto; min-height: 40px; padding: 6px 10px; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border-radius: 6px; border: 1.5px solid var(--ink); background: var(--ink); color: var(--on-ink); font-weight: 600; font-size: 16px; }
+.btn.ghost { background: transparent; color: var(--ink); }
+.logfoot { border-top: 2px solid var(--ink); padding-top: 18px; }
+.addform h3 { font-family: var(--display); font-weight: 600; font-size: 22px; margin: 0 0 10px; }
+.addrow { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; margin-top: 8px; }
+.formmsg { min-height: 20px; margin: 6px 0 0; font-size: 14px; color: var(--plate); }
+.foot-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; margin-top: 16px; }
+.empty { color: var(--graphite); padding: 12px 0; margin: 0; }
+
+.grid-wrap { overflow-x: auto; margin: 18px 0 6px; padding-bottom: 4px; }
+.yeargrid { display: block; }
+.yeargrid .c-rest { fill: var(--rule); }
+.yeargrid .c-future { fill: var(--rule); opacity: .4; }
+.yeargrid .c-trained { fill: var(--plate); }
+.yeargrid .c-today { stroke: var(--ink); stroke-width: 1.5; }
+.yeargrid text { font-family: var(--text); font-size: 11px; fill: var(--graphite); }
+.caption { margin: 4px 0 0; color: var(--graphite); font-size: 15px; }
+.sec-title { font-family: var(--display); font-weight: 600; font-size: 27px; margin: 30px 0 6px; }
+.sess { border-top: 1.5px solid var(--rule); }
+.sess:last-child { border-bottom: 1.5px solid var(--rule); }
+.sess summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 0 12px; padding: 12px 0; }
+.sess summary::-webkit-details-marker { display: none; }
+.s-date { font-weight: 600; }
+.s-day { font-family: var(--display); font-weight: 600; font-size: 19px; text-align: right; }
+.s-day::after { content: " +"; color: var(--graphite); }
+.sess[open] .s-day::after { content: " \2212"; }
+.s-meta { grid-column: 1 / -1; font-size: 14px; color: var(--graphite); }
+.s-body { padding: 0 0 14px; }
+.s-ex { margin: 0 0 6px; font-size: 15px; color: var(--graphite); }
+.s-ex b { color: var(--ink); font-weight: 600; }
+.s-actions { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; margin-top: 10px; }
+.export { margin-top: 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.export p { margin: 0; font-size: 14px; color: var(--graphite); }
+
+.prog-head { padding: 22px 0 4px; }
+.prog-controls { display: grid; gap: 10px; margin-top: 16px; }
+.seg { display: inline-flex; border: 1.5px solid var(--ink); border-radius: 6px; overflow: hidden; width: max-content; max-width: 100%; }
+.seg button { background: transparent; border: 0; padding: 8px 12px; font-size: 14.5px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+.seg button + button { border-left: 1.5px solid var(--ink); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); }
+.chart-wrap { margin: 18px 0 4px; min-height: 60px; }
+.chart { display: block; }
+.chart .grid { stroke: var(--rule); stroke-width: 1; }
+.chart .line { fill: none; stroke: var(--ink); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.chart .dot { fill: var(--paper); stroke: var(--ink); stroke-width: 2; }
+.chart .dot.pr { fill: var(--plate); stroke: var(--plate); }
+.chart text { font-family: var(--text); font-size: 12px; fill: var(--graphite); }
+.chart text.val { font-family: var(--display); font-weight: 600; font-size: 17px; fill: var(--ink); }
+.legend { font-size: 13px; color: var(--graphite); margin: 2px 0 0; }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--plate); margin-right: 5px; }
+.stats { margin: 14px 0 0; padding: 0; list-style: none; font-size: 15px; }
+.stats li { padding: 3px 0; }
+.stats b { font-weight: 600; }
+.table-wrap { overflow-x: auto; margin-top: 20px; }
+.ptable { width: 100%; border-collapse: collapse; font-size: 15px; }
+.ptable th { text-align: left; font-weight: 500; color: var(--graphite); font-size: 13px; padding: 0 10px 6px 0; border-bottom: 1.5px solid var(--ink); }
+.ptable td { padding: 9px 10px 9px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.ptable td:first-child { white-space: nowrap; font-weight: 600; }
+.ptable td:last-child, .ptable th:last-child { text-align: right; padding-right: 0; white-space: nowrap; }
+
+.restbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: var(--ink); color: var(--on-ink); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.restbar-in { display: flex; align-items: center; gap: 12px; min-height: 62px; }
+.rest-label { font-size: 15px; opacity: .8; }
+.rest-time { font-family: var(--display); font-weight: 700; font-size: 34px; font-variant-numeric: tabular-nums; line-height: 1; }
+.rest-hide { margin-left: auto; background: transparent; color: var(--on-ink); border: 1.5px solid currentColor; border-radius: 6px; min-height: 40px; padding: 0 14px; font-weight: 600; }
+@media (prefers-reduced-motion: no-preference) {
+  .restbar { animation: rise .18s ease-out; }
+  .setno.pr .tag { animation: stamp .28s ease-out; }
+  @keyframes rise { from { transform: translateY(100%); } to { transform: none; } }
+  @keyframes stamp { 0% { transform: scale(1.8); opacity: 0; } 100% { transform: none; opacity: 1; } }
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap topbar-in">
+    <nav class="viewtabs" aria-label="Sections">
+      <button type="button" class="viewtab" data-view="log">Log</button>
+      <button type="button" class="viewtab" data-view="history">History</button>
+      <button type="button" class="viewtab" data-view="progress">Progress</button>
+    </nav>
+    <span class="status" id="status" role="status" aria-live="polite"></span>
+  </div>
+</header>
+<main class="wrap" id="main"></main>
+<div class="restbar" id="restbar" hidden>
+  <div class="wrap restbar-in">
+    <span class="rest-label">Resting</span>
+    <span class="rest-time" id="rest-time">0:00</span>
+    <button type="button" class="rest-hide" id="rest-hide">Hide</button>
+  </div>
+</div>
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------- Plan ---------------- */
+  const DAYS = [
+    { key: "legs", name: "Legs" },
+    { key: "back-chest", name: "Back & Chest" },
+    { key: "tri-bi", name: "Tri & Bi" },
+    { key: "back-bi", name: "Back & Bi" },
+    { key: "chest-tri", name: "Chest & Tri" },
+    { key: "abs", name: "Abs" },
+    { key: "forearm", name: "Forearm" }
+  ];
+  const DAY_NOTES = { abs: "Circuit: all three back to back, 2 rounds." };
+  const SHOULDER_NOTE = "Placeholder. Use Edit exercises to swap in your shoulder moves.";
+  const DEFAULT_PLAN = {
+    "legs": [
+      { name: "Squat", type: "wr" }, { name: "Romanian Deadlift", type: "wr" }, { name: "Barbell Hip Thrust", type: "wr" },
+      { name: "Leg Extension", type: "wr" }, { name: "Leg Curl (machine)", type: "wr" }, { name: "Adductor/Abductor", type: "wr" },
+      { name: "Calf Raises", type: "wr" }
+    ],
+    "back-chest": [
+      { name: "Incline Smith Press", type: "wr" }, { name: "Pec Deck", type: "wr", note: "Or the pec deck/rear delt combo machine" },
+      { name: "High-to-Low Crossover", type: "wr" }, { name: "Pull-Ups", type: "bw" }, { name: "Lat Pulldown", type: "wr" },
+      { name: "Single-Arm Cable Row", type: "wr" }, { name: "Barbell Shrugs", type: "wr" }
+    ],
+    "tri-bi": [
+      { name: "Cable Pushdown (V-bar)", type: "wr", note: "Plus a single-arm finisher each side" }, { name: "Dips", type: "bw" },
+      { name: "Overhead Rope Extension", type: "wr", note: "Long head" }, { name: "Incline DB Curl", type: "wr", note: "Long head" },
+      { name: "Preacher Curl", type: "wr", note: "Short head" }, { name: "Hammer Curl", type: "wr" },
+      { name: "Shoulder Work", type: "wr", note: SHOULDER_NOTE }
+    ],
+    "back-bi": [
+      { name: "Pull-Ups", type: "bw" }, { name: "Lat Pulldown", type: "wr" }, { name: "Single-Arm Cable Row", type: "wr" },
+      { name: "Barbell Shrugs", type: "wr" }, { name: "Preacher Curl", type: "wr" }, { name: "Incline DB Curl", type: "wr" },
+      { name: "Barbell/Hammer Curl Finisher", type: "wr" }, { name: "Shoulder Work", type: "wr", note: SHOULDER_NOTE }
+    ],
+    "chest-tri": [
+      { name: "Incline Smith Press", type: "wr" }, { name: "Close-Grip Pin Press", type: "wr" }, { name: "Pec Deck", type: "wr" },
+      { name: "High-to-Low Crossover", type: "wr" }, { name: "Cable Pushdown (V-bar)", type: "wr", note: "Plus a single-arm finisher each side" },
+      { name: "Overhead Rope Extension", type: "wr", note: "Long head" }, { name: "Dips", type: "bw", note: "To failure, finisher" }
+    ],
+    "abs": [
+      { name: "Cable Crunches", type: "wr", sets: 2 }, { name: "Dead Bugs", type: "bw", sets: 2 },
+      { name: "Plank", type: "time", sets: 2, note: "To failure" }
+    ],
+    "forearm": [
+      { name: "Cable Wrist Curl", type: "wr" }, { name: "Reverse Wrist Extension", type: "wr" },
+      { name: "Reverse Grip Cable Curls", type: "wr" }, { name: "Farmer's Carry", type: "carry" }
+    ]
+  };
+  const TYPES = {
+    wr: { label: "Weight and reps", fields: ["w", "r"], heads: ["lb", "Reps"] },
+    bw: { label: "Bodyweight reps", fields: ["w", "r"], heads: ["Added lb", "Reps"] },
+    time: { label: "Timed hold", fields: ["s"], heads: ["Seconds"] },
+    carry: { label: "Weight and time", fields: ["w", "s"], heads: ["lb", "Seconds"] }
+  };
+  const maxOf = (a, f) => a.reduce((m, x) => Math.max(m, f(x) || 0), 0);
+  const sumOf = (a, f) => a.reduce((m, x) => m + (f(x) || 0), 0);
+  const METRICS = {
+    wr: [
+      { key: "top", label: "Top weight", unit: "lb", f: s => maxOf(s, x => x.w) },
+      { key: "e1rm", label: "Est. 1RM", unit: "lb", f: s => maxOf(s, x => e1rm(x.w, x.r)) },
+      { key: "vol", label: "Volume", unit: "lb", f: s => sumOf(s, x => (x.w || 0) * (x.r || 0)) }
+    ],
+    bw: [
+      { key: "best", label: "Best set", unit: "reps", f: s => maxOf(s, x => x.r) },
+      { key: "total", label: "Total reps", unit: "reps", f: s => sumOf(s, x => x.r) }
+    ],
+    time: [
+      { key: "best", label: "Longest hold", unit: "sec", f: s => maxOf(s, x => x.s) },
+      { key: "total", label: "Total time", unit: "sec", f: s => sumOf(s, x => x.s) }
+    ],
+    carry: [
+      { key: "top", label: "Top weight", unit: "lb", f: s => maxOf(s, x => x.w) },
+      { key: "long", label: "Longest carry", unit: "sec", f: s => maxOf(s, x => x.s) }
+    ]
+  };
+  const LS = { sessions: "wt2.sessions", synced: "wt2.synced", plan: "wt2.plan", deletes: "wt2.deletes", ui: "wt2.ui", migrated: "wt2.migratedV1" };
+  const OLD_KEY = "ax_tracker_history_v1";
+  const PLAN_ID = "__plan";
+
+  /* ---------------- Utils ---------------- */
+  const $ = (sel, root) => (root || document).querySelector(sel);
+  const norm = s => String(s == null ? "" : s).trim().toLowerCase().replace(/\s+/g, " ");
+  const pad2 = n => String(n).padStart(2, "0");
+  const clone = o => JSON.parse(JSON.stringify(o));
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const DOW_LONG = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  function ymd(d) { return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
+  function parseYmd(s) { const p = String(s).split("-").map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+  function todayYmd() { return ymd(new Date()); }
+  function isYmd(s) { return /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(parseYmd(s).getTime()); }
+  function yr(d) { return d.getFullYear() !== new Date().getFullYear() ? " " + d.getFullYear() : ""; }
+  function fmtShort(s) { const d = parseYmd(s); return MON[d.getMonth()] + " " + d.getDate() + yr(d); }
+  function fmtMed(s) { const d = parseYmd(s); return DOW[d.getDay()] + ", " + MON[d.getMonth()] + " " + d.getDate() + yr(d); }
+  function fmtLong(s) { const d = parseYmd(s); return DOW_LONG[d.getDay()] + ", " + MON[d.getMonth()] + " " + d.getDate() + yr(d); }
+  function daysBetween(a, b) { return Math.round((parseYmd(b) - parseYmd(a)) / 86400000); }
+  function plural(n, w) { return n + " " + w + (n === 1 ? "" : "s"); }
+  function parseNum(v, isInt) {
+    const s = String(v == null ? "" : v).trim().replace(",", ".");
+    if (!s) return null;
+    const n = Number(s);
+    if (!isFinite(n) || n < 0) return null;
+    return isInt ? Math.round(n) : Math.round(n * 100) / 100;
+  }
+  function parseSecs(v) {
+    const m = /^(\d+):([0-5]?\d)$/.exec(String(v == null ? "" : v).trim());
+    return m ? +m[1] * 60 + +m[2] : parseNum(v, true);
+  }
+  function fmtNum(n) { return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100); }
+  function fmtSec(n) { n = Math.round(n); return n < 60 ? n + "s" : Math.floor(n / 60) + ":" + pad2(n % 60); }
+  function fmtBig(n) { return Math.round(n).toLocaleString("en-US"); }
+  function fmtMetric(v, unit) {
+    if (unit === "sec") return fmtSec(v);
+    if (unit === "reps") return Math.round(v) + " reps";
+    return fmtBig(v) + " lb";
+  }
+  function fmtAxis(v, unit) { return unit === "sec" ? fmtSec(v) : fmtBig(v); }
+  function fmtVal(v, f) { return f === "s" ? String(Math.round(v)) : fmtNum(v); }
+  function fmtSet(st, type) {
+    const w = st.w != null ? fmtNum(st.w) : null;
+    if (type === "time") return st.s != null ? fmtSec(st.s) : "?";
+    if (type === "carry") return (w != null ? w + " lb" : "BW") + (st.s != null ? " for " + fmtSec(st.s) : "");
+    if (type === "bw") return (st.w ? "BW+" + w : "BW") + " \u00d7 " + (st.r != null ? st.r : "?");
+    return (w != null ? w : "?") + " \u00d7 " + (st.r != null ? st.r : "?");
+  }
+  function lsGet(key, fallback) { try { const raw = window.localStorage.getItem(key); return raw == null ? fallback : JSON.parse(raw); } catch (e) { return fallback; } }
+  function lsSet(key, val) { try { window.localStorage.setItem(key, JSON.stringify(val)); } catch (e) { /* storage blocked or full */ } }
+
+  function h(tag, props) {
+    const el = document.createElement(tag);
+    if (tag === "button") el.type = "button";
+    if (props) Object.keys(props).forEach(k => {
+      const v = props[k];
+      if (v == null || v === false) return;
+      if (k === "class") el.className = v;
+      else if (k === "text") el.textContent = v;
+      else if (k === "value") el.value = v;
+      else if (k.slice(0, 2) === "on" && typeof v === "function") el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? "" : String(v));
+    });
+    addKids(el, Array.prototype.slice.call(arguments, 2));
+    return el;
+  }
+  function addKids(el, kids) {
+    kids.forEach(k => {
+      if (k == null || k === false) return;
+      if (Array.isArray(k)) addKids(el, k);
+      else el.appendChild(typeof k === "object" ? k : document.createTextNode(String(k)));
+    });
+  }
+  const SVGNS = "http://www.w3.org/2000/svg";
+  function sv(tag, attrs) {
+    const el = document.createElementNS(SVGNS, tag);
+    if (attrs) Object.keys(attrs).forEach(k => { if (attrs[k] != null) el.setAttribute(k, attrs[k]); });
+    Array.prototype.slice.call(arguments, 2).forEach(k => { if (k != null) el.appendChild(typeof k === "object" ? k : document.createTextNode(String(k))); });
+    return el;
+  }
+  function icon(d, size, stroke) {
+    return sv("svg", { viewBox: "0 0 24 24", width: size || 20, height: size || 20, fill: "none", stroke: "currentColor", "stroke-width": stroke || 2.2, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" }, sv("path", { d: d }));
+  }
+  const ICON = { chart: "M4 4v16h16M7.5 15l4-4.5 3 3L19 8", check: "M5 12.5l4.5 4.5L19 7.5", up: "M12 19V5M6 11l6-6 6 6", down: "M12 5v14M6 13l6 6 6-6", x: "M6 6l12 12M18 6L6 18" };
+
+  /* ---------------- Scoring ---------------- */
+  function e1rm(w, r) { if (!(w > 0) || !(r > 0)) return 0; return r === 1 ? w : w * (1 + r / 30); }
+  function complete(st, type) {
+    if (type === "time") return st.s > 0;
+    if (type === "carry") return st.w > 0 || st.s > 0;
+    return st.r > 0;
+  }
+  function prScore(st, type) {
+    if (!complete(st, type)) return 0;
+    if (type === "wr") return st.w > 0 ? e1rm(st.w, st.r) : 0;
+    if (type === "bw") return st.r + (st.w || 0) / 1000;
+    if (type === "time") return st.s;
+    return (st.w || 0) * 1000 + (st.s || 0);
+  }
+  function beat(cur, prev, type) {
+    if (!prev || !complete(cur, type) || !complete(prev, type)) return false;
+    const cw = cur.w || 0, pw = prev.w || 0;
+    if (type === "wr") { const a = cw > 0 ? e1rm(cw, cur.r) : cur.r, b = pw > 0 ? e1rm(pw, prev.r) : prev.r; return a > b + 1e-9; }
+    if (type === "bw") return (cw > pw && cur.r >= prev.r) || (cw === pw && cur.r > prev.r);
+    if (type === "time") return cur.s > prev.s;
+    return (cw > pw && (cur.s || 0) >= (prev.s || 0)) || (cw === pw && (cur.s || 0) > (prev.s || 0));
+  }
+
+  /* ---------------- Data ---------------- */
+  const dayObj = key => DAYS.find(d => d.key === key) || DAYS[0];
+  const dayIndex = key => { const i = DAYS.findIndex(d => d.key === key); return i < 0 ? 99 : i; };
+  const sessId = (date, day) => date + "_" + day;
+
+  function sanitizePlan(days) {
+    const out = {};
+    DAYS.forEach(d => {
+      const arr = days && Array.isArray(days[d.key]) ? days[d.key] : DEFAULT_PLAN[d.key];
+      out[d.key] = arr.filter(e => e && typeof e.name === "string" && e.name.trim()).map(e => {
+        const o = { name: e.name.trim().slice(0, 60), type: TYPES[e.type] ? e.type : "wr", note: typeof e.note === "string" ? e.note.slice(0, 100) : "" };
+        if (Number.isInteger(e.sets) && e.sets > 0 && e.sets <= 10) o.sets = e.sets;
+        return o;
+      });
+    });
+    return out;
+  }
+  function sanitizeSession(id, raw) {
+    if (!raw || typeof raw !== "object") return null;
+    const m = /^(\d{4}-\d{2}-\d{2})_([a-z-]+)$/.exec(id);
+    if (!m || !isYmd(m[1]) || !DAYS.some(d => d.key === m[2])) return null;
+    const exercises = (Array.isArray(raw.exercises) ? raw.exercises : []).filter(e => e && typeof e.name === "string").map(e => ({
+      name: e.name.slice(0, 60),
+      type: TYPES[e.type] ? e.type : "wr",
+      note: typeof e.note === "string" ? e.note.slice(0, 200) : "",
+      sets: (Array.isArray(e.sets) ? e.sets : []).filter(x => x && typeof x === "object").slice(0, 30).map(x => {
+        const o = {};
+        ["w", "r", "s"].forEach(f => { const v = Number(x[f]); if (x[f] != null && x[f] !== "" && isFinite(v) && v >= 0) o[f] = v; });
+        if (x.d) o.d = true;
+        return o;
+      })
+    }));
+    if (!exercises.length) return null;
+    return { date: m[1], day: m[2], dayName: dayObj(m[2]).name, exercises: exercises, createdAt: +raw.createdAt || 0, updatedAt: +raw.updatedAt || 0 };
+  }
+
+  let planState = lsGet(LS.plan, null);
+  if (!planState || typeof planState !== "object" || !planState.days) planState = null;
+  let plan = sanitizePlan(planState ? planState.days : DEFAULT_PLAN);
+  if (planState) planState = { days: plan, updatedAt: +planState.updatedAt || 0 };
+
+  let sessions = {};
+  (function () {
+    const raw = lsGet(LS.sessions, {});
+    if (raw && typeof raw === "object") Object.keys(raw).forEach(id => { const s = sanitizeSession(id, raw[id]); if (s) sessions[id] = s; });
+  })();
+  let synced = lsGet(LS.synced, {});
+  if (!synced || typeof synced !== "object") synced = {};
+  const rawDeletes = lsGet(LS.deletes, []);
+  const pendingDeletes = new Set(Array.isArray(rawDeletes) ? rawDeletes : []);
+  const saveDeletes = () => lsSet(LS.deletes, Array.from(pendingDeletes));
+
+  let sortedCache = null;
+  function sortedSessions() {
+    if (!sortedCache) {
+      sortedCache = Object.keys(sessions).map(id => Object.assign({ id: id }, sessions[id]));
+      sortedCache.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : dayIndex(a.day) - dayIndex(b.day)));
+    }
+    return sortedCache;
+  }
+  function sessionsChanged() { sortedCache = null; lsSet(LS.sessions, sessions); }
+  function findEx(s, name) { const k = norm(name); return s.exercises.find(e => norm(e.name) === k) || null; }
+  function completeSets(ex) { return ex.sets.filter(st => complete(st, ex.type)); }
+  function lastTime(name, before) {
+    for (const s of sortedSessions()) {
+      if (s.date >= before) continue;
+      const ex = findEx(s, name);
+      if (ex) { const sets = completeSets(ex); if (sets.length) return { date: s.date, sets: sets }; }
+    }
+    return null;
+  }
+  function lastNote(name, before) {
+    for (const s of sortedSessions()) {
+      if (s.date >= before) continue;
+      const ex = findEx(s, name);
+      if (ex && ex.note) return ex.note;
+    }
+    return "";
+  }
+  function prevBest(name, type, before) {
+    let best = 0;
+    sortedSessions().forEach(s => {
+      if (s.date >= before) return;
+      const ex = findEx(s, name);
+      if (ex) ex.sets.forEach(st => { const sc = prScore(st, type); if (sc > best) best = sc; });
+    });
+    return best;
+  }
+  function typeOf(name) {
+    const k = norm(name);
+    for (const d of DAYS) { const e = plan[d.key].find(x => norm(x.name) === k); if (e) return e.type; }
+    for (const s of sortedSessions()) { const e = findEx(s, name); if (e) return e.type; }
+    return "wr";
+  }
+  function knownExercises() {
+    const map = new Map();
+    DAYS.forEach(d => plan[d.key].forEach(e => { if (!map.has(norm(e.name))) map.set(norm(e.name), e); }));
+    sortedSessions().forEach(s => s.exercises.forEach(e => { if (!map.has(norm(e.name))) map.set(norm(e.name), e); }));
+    return Array.from(map.values());
+  }
+
+  /* ---------------- Migrate v1 data ---------------- */
+  function migrateOld() {
+    if (lsGet(LS.migrated, false)) return;
+    const old = lsGet(OLD_KEY, null);
+    if (old && typeof old === "object") {
+      const dayMap = { "Legs": "legs", "Back & Chest": "back-chest", "Tri & Bi": "tri-bi", "Back & Bi": "back-bi", "Chest & Tri": "chest-tri", "Abs": "abs", "Forearm": "forearm" };
+      const nameMap = { "Adductor/Abductor accessory": "Adductor/Abductor", "Incline Curl": "Incline DB Curl" };
+      let any = false;
+      Object.keys(old).forEach(key => {
+        const parts = key.split(" :: ");
+        const day = dayMap[parts[0]];
+        if (parts.length !== 2 || !day || !Array.isArray(old[key])) return;
+        const name = nameMap[parts[1]] || parts[1];
+        const type = typeOf(name);
+        old[key].forEach(en => {
+          if (!en || !en.ts) return;
+          const date = ymd(new Date(en.ts)), id = sessId(date, day);
+          const sess = sessions[id] || (sessions[id] = { date: date, day: day, dayName: dayObj(day).name, exercises: [], createdAt: en.ts, updatedAt: Date.now() });
+          let ex = findEx(sess, name);
+          if (!ex) { ex = { name: name, type: type, note: "", sets: [] }; sess.exercises.push(ex); }
+          const w = parseNum(en.weight), txt = String(en.reps || "").trim();
+          const mk = r => { const o = {}; if (w != null) o.w = w; o.r = r; o.d = true; return o; };
+          const m = /^(\d+)\s*[x\u00d7*]\s*(\d+)$/i.exec(txt);
+          if (m) { for (let k = 0; k < Math.min(+m[2], 10); k++) ex.sets.push(mk(+m[1])); }
+          else if (/^\d+$/.test(txt)) ex.sets.push(mk(+txt));
+          else { if (w != null) ex.sets.push({ w: w }); if (txt) ex.note = (ex.note ? ex.note + "; " : "") + txt.slice(0, 80); }
+          sess.updatedAt = Date.now();
+          any = true;
+        });
+      });
+      if (any) sessionsChanged();
+    }
+    lsSet(LS.migrated, true);
+  }
+
+  /* ---------------- State ---------------- */
+  const ui = lsGet(LS.ui, {}) || {};
+  const state = {
+    view: "log",
+    day: DAYS.some(d => d.key === ui.day) ? ui.day : "legs",
+    date: todayYmd(),
+    dateIsToday: true,
+    pickDate: false,
+    editing: false,
+    progressEx: typeof ui.progressEx === "string" ? ui.progressEx : null,
+    progressMetric: {},
+    work: null,
+    confirm: null
+  };
+  function saveUi() { lsSet(LS.ui, { day: state.day, progressEx: state.progressEx }); }
+  let downloadsNs = null;
+  let chartCtx = null;
+
+  /* ---------------- Working session ---------------- */
+  const blankSet = () => ({ w: null, r: null, s: null, d: false });
+  const toWorkSet = st => ({ w: st.w != null ? st.w : null, r: st.r != null ? st.r : null, s: st.s != null ? st.s : null, d: !!st.d });
+  function buildWork(date, day) {
+    const id = sessId(date, day), stored = sessions[id] || null, used = new Set(), exercises = [];
+    plan[day].forEach(pe => {
+      const se = stored ? findEx(stored, pe.name) : null;
+      const last = lastTime(pe.name, date);
+      const want = last ? Math.min(Math.max(last.sets.length, 1), 8) : (pe.sets || 3);
+      const sets = se ? se.sets.map(toWorkSet) : [];
+      while (sets.length < want) sets.push(blankSet());
+      exercises.push({ name: pe.name, type: pe.type, planNote: pe.note || "", note: se ? se.note || "" : "", sets: sets, inPlan: true });
+      used.add(norm(pe.name));
+    });
+    if (stored) stored.exercises.forEach(se => {
+      if (used.has(norm(se.name))) return;
+      const sets = se.sets.map(toWorkSet);
+      if (!sets.length) sets.push(blankSet());
+      exercises.push({ name: se.name, type: se.type, planNote: "", note: se.note || "", sets: sets, inPlan: false });
+    });
+    return { id: id, date: date, day: day, exercises: exercises };
+  }
+  function toStored(w) {
+    const exercises = [];
+    w.exercises.forEach(ex => {
+      const sets = [];
+      ex.sets.forEach(st => {
+        if (st.w == null && st.r == null && st.s == null) return;
+        const o = {};
+        if (st.w != null) o.w = st.w;
+        if (st.r != null) o.r = st.r;
+        if (st.s != null) o.s = st.s;
+        if (st.d) o.d = true;
+        sets.push(o);
+      });
+      const note = String(ex.note || "").trim().slice(0, 200);
+      if (sets.length || note) exercises.push({ name: ex.name, type: ex.type, note: note, sets: sets });
+    });
+    return exercises.length ? { date: w.date, day: w.day, dayName: dayObj(w.day).name, exercises: exercises } : null;
+  }
+  let commitTimer = null;
+  function scheduleCommit() { clearTimeout(commitTimer); commitTimer = setTimeout(() => commitWork(false), 350); }
+  function commitWork(now) {
+    clearTimeout(commitTimer); commitTimer = null;
+    const w = state.work;
+    if (!w) return;
+    const body = toStored(w), prev = sessions[w.id];
+    if (!body) {
+      if (!prev) return;
+      delete sessions[w.id];
+      if (synced[w.id] != null) { pendingDeletes.add(w.id); saveDeletes(); }
+    } else {
+      if (prev && JSON.stringify(prev.exercises) === JSON.stringify(body.exercises)) return;
+      body.createdAt = (prev && prev.createdAt) || Date.now();
+      body.updatedAt = Math.max(Date.now(), ((prev && prev.updatedAt) || 0) + 1);
+      sessions[w.id] = body;
+      if (pendingDeletes.delete(w.id)) saveDeletes();
+    }
+    sessionsChanged();
+    refreshChips();
+    remote.push(w.id, now);
+  }
+
+  /* ---------------- Rendering: shell ---------------- */
+  function render() {
+    document.querySelectorAll(".viewtab").forEach(b => {
+      if (b.dataset.view === state.view) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+    });
+    const main = $("#main");
+    main.textContent = "";
+    chartCtx = null;
+    if (state.view === "history") renderHistory(main);
+    else if (state.view === "progress") renderProgress(main);
+    else renderLog(main);
+  }
+  function setView(v) {
+    commitWork(false);
+    state.view = v; state.pickDate = false; state.confirm = null;
+    if (v === "log") state.work = buildWork(state.date, state.day);
+    render();
+    window.scrollTo(0, 0);
+  }
+  function setDay(k) {
+    if (k === state.day) return;
+    commitWork(false);
+    state.day = k; state.editing = false; state.confirm = null;
+    state.work = buildWork(state.date, k);
+    saveUi();
+    render();
+  }
+  function setDate(v) {
+    state.pickDate = false;
+    if (isYmd(v) && v !== state.date) {
+      commitWork(false);
+      state.date = v;
+      state.dateIsToday = v === todayYmd();
+      state.work = buildWork(v, state.day);
+    }
+    render();
+  }
+  function openProgress(name) {
+    commitWork(false);
+    state.progressEx = name; saveUi();
+    state.view = "progress";
+    render();
+    window.scrollTo(0, 0);
+  }
+  function openSession(s) {
+    commitWork(false);
+    state.view = "log"; state.day = s.day; state.date = s.date; state.dateIsToday = s.date === todayYmd();
+    state.editing = false; state.pickDate = false;
+    state.work = buildWork(s.date, s.day);
+    saveUi();
+    render();
+    window.scrollTo(0, 0);
+  }
+
+  let armedPaint = null, confirmTimer = null;
+  function confirmButton(key, label, armedLabel, ariaLabel, onConfirm, cls) {
+    const btn = h("button", { class: cls });
+    const paint = () => {
+      const armed = state.confirm === key;
+      btn.textContent = "";
+      btn.classList.toggle("armed", armed);
+      if (armed) btn.textContent = armedLabel;
+      else if (typeof label === "function") btn.appendChild(label());
+      else btn.textContent = label;
+      btn.setAttribute("aria-label", armed ? armedLabel : ariaLabel || label);
+    };
+    btn.addEventListener("click", () => {
+      if (state.confirm === key) { state.confirm = null; armedPaint = null; clearTimeout(confirmTimer); onConfirm(); return; }
+      const prevPaint = armedPaint;
+      state.confirm = key; armedPaint = paint;
+      if (prevPaint) prevPaint();
+      paint();
+      clearTimeout(confirmTimer);
+      confirmTimer = setTimeout(() => { if (state.confirm === key) { state.confirm = null; armedPaint = null; paint(); } }, 4000);
+    });
+    paint();
+    return btn;
+  }
+
+  /* ---------------- Rendering: Log ---------------- */
+  function chipSub(dayKey) {
+    if (sessions[sessId(state.date, dayKey)]) return "logged";
+    const last = sortedSessions().find(s => s.day === dayKey && s.date < state.date);
+    return last ? daysBetween(last.date, state.date) + "d ago" : "new";
+  }
+  function refreshChips() {
+    document.querySelectorAll(".daychip").forEach(b => { const sub = b.querySelector(".dc-sub"); if (sub) sub.textContent = chipSub(b.dataset.day); });
+  }
+  function renderLog(main) {
+    const w = state.work, d = dayObj(state.day), today = todayYmd();
+    const hero = h("section", { class: "hero" }, h("h1", { text: d.name }));
+    const dl = h("div", { class: "dateline" });
+    if (state.pickDate) {
+      const inp = h("input", { type: "date", class: "field date-field", value: state.date, max: today, "aria-label": "Workout date" });
+      inp.addEventListener("change", () => { if (inp.value) setDate(inp.value); });
+      dl.append(inp, h("button", { class: "linkbtn", text: "Cancel", onclick: () => { state.pickDate = false; render(); } }));
+    } else {
+      dl.append(h("span", { class: "date-text", text: fmtLong(state.date) }));
+      if (state.date !== today) dl.append(h("button", { class: "linkbtn", text: "Back to today", onclick: () => setDate(today) }));
+      dl.append(h("button", { class: "linkbtn", text: "Change date", onclick: () => { state.pickDate = true; render(); } }));
+    }
+    hero.append(dl, h("p", { class: "summary", id: "summary" }));
+    if (DAY_NOTES[state.day]) hero.append(h("p", { class: "daynote", text: DAY_NOTES[state.day] }));
+    main.append(hero);
+    main.append(h("nav", { class: "days", "aria-label": "Workout day" }, DAYS.map(x => h("button", {
+      class: "daychip", "data-day": x.key, "aria-pressed": String(x.key === state.day), onclick: () => setDay(x.key)
+    }, h("span", { class: "dc-name", text: x.name }), h("span", { class: "dc-sub", text: chipSub(x.key) })))));
+    const list = h("div", { class: "exlist" });
+    w.exercises.forEach((ex, i) => list.append(renderExercise(ex, i)));
+    if (!w.exercises.length) list.append(h("p", { class: "empty", text: "No exercises on this day yet. Add some with Edit exercises." }));
+    main.append(list, renderLogFoot());
+    updateSummary();
+  }
+  function updateSummary() {
+    const el = document.getElementById("summary");
+    if (!el || !state.work) return;
+    let exDone = 0, sets = 0, anyLast = false;
+    state.work.exercises.forEach(ex => {
+      const n = completeSets(ex).length;
+      if (n) exDone++;
+      sets += n;
+    });
+    if (sets) { el.textContent = exDone + " of " + plural(state.work.exercises.length, "exercise") + " logged, " + plural(sets, "set") + "."; return; }
+    anyLast = state.work.exercises.some(ex => lastTime(ex.name, state.date));
+    el.textContent = anyLast ? "Type weight and reps, or tap the check to repeat last time." : "Type weight and reps for each set, then tap the check.";
+  }
+  function renderExercise(ex, i) {
+    const t = TYPES[ex.type];
+    const last = lastTime(ex.name, state.date);
+    const sec = h("section", { class: "ex", "data-ex": String(i), "aria-label": ex.name });
+    const sub = ex.inPlan ? ex.planNote : "Not on this day's list anymore";
+    const title = h("div", { class: "ex-title" }, h("h2", { class: "ex-name", text: ex.name }), sub ? h("p", { class: "ex-sub", text: sub }) : null);
+    const tools = state.editing && ex.inPlan ? editTools(i)
+      : h("button", { class: "iconbtn", title: "Progress", "aria-label": "Progress for " + ex.name, onclick: () => openProgress(ex.name) }, icon(ICON.chart));
+    sec.append(h("div", { class: "ex-head" }, title, tools));
+    const lastP = h("p", { class: "last" });
+    if (last) lastP.append("Last time, " + fmtMed(last.date) + ": ", h("b", { text: last.sets.map(st => fmtSet(st, ex.type)).join(", ") }));
+    else lastP.append("First time logging this one.");
+    sec.append(lastP);
+    const single = t.fields.length === 1 ? " single" : "";
+    sec.append(h("div", { class: "setrow head" + single, "aria-hidden": "true" }, h("span", { text: "Set" }), t.heads.map(x => h("span", { text: x })), h("span", { text: "Done" })));
+    ex.sets.forEach((st, j) => sec.append(setRow(ex, i, st, j, last)));
+    const noteOpen = !!ex.note || ex._noteOpen;
+    sec.append(h("div", { class: "ex-actions" },
+      h("button", { class: "textbtn", text: "Add set", onclick: () => { ex.sets.push(blankSet()); replaceExercise(i); } }),
+      ex.sets.length > 1 ? h("button", { class: "textbtn dim", text: "Remove last set", onclick: () => { ex.sets.pop(); scheduleCommit(); replaceExercise(i); } }) : null,
+      noteOpen ? null : h("button", { class: "textbtn dim", text: "Add note", onclick: () => { ex._noteOpen = true; replaceExercise(i, true); } })
+    ));
+    if (noteOpen) {
+      const ln = lastNote(ex.name, state.date);
+      const note = h("input", { class: "field note", type: "text", maxlength: "200", value: ex.note || "", placeholder: ln ? "Last note: " + ln : "Seat height, grip, how it felt", "aria-label": ex.name + " note", "data-fk": "note:" + i });
+      note.addEventListener("input", () => { ex.note = note.value; scheduleCommit(); });
+      sec.append(note);
+    }
+    refreshMarkers(i, sec);
+    return sec;
+  }
+  function setRow(ex, i, st, j, last) {
+    const t = TYPES[ex.type], prev = last && last.sets[j];
+    const row = h("div", { class: "setrow" + (t.fields.length === 1 ? " single" : "") + (st.d ? " done" : ""), "data-set": String(j) });
+    row.append(h("div", { class: "setno" }, h("span", { class: "n", text: String(j + 1) }), h("span", { class: "tag" })));
+    t.fields.forEach((f, k) => {
+      let ph = prev && prev[f] != null ? fmtVal(prev[f], f) : "";
+      if (!ph && ex.type === "bw" && f === "w") ph = "BW";
+      const inp = h("input", {
+        class: "num", type: "text", inputmode: f === "w" ? "decimal" : "numeric", autocomplete: "off", enterkeyhint: "next",
+        "aria-label": "Set " + (j + 1) + " " + t.heads[k], placeholder: ph, value: st[f] != null ? fmtVal(st[f], f) : "",
+        "data-f": f, "data-fk": i + ":" + j + ":" + f
+      });
+      inp.addEventListener("input", () => onSetInput(i, j, f, inp.value));
+      inp.addEventListener("focus", () => { try { inp.select(); } catch (e) {} });
+      inp.addEventListener("keydown", e => {
+        if (e.key !== "Enter") return;
+        e.preventDefault();
+        const all = Array.from(document.querySelectorAll(".num"));
+        const nx = all[all.indexOf(inp) + 1];
+        if (nx) nx.focus(); else inp.blur();
+      });
+      row.append(inp);
+    });
+    row.append(h("button", { class: "check", "aria-pressed": String(!!st.d), "aria-label": st.d ? "Set " + (j + 1) + " done, tap to undo" : "Mark set " + (j + 1) + " done", onclick: () => toggleDone(i, j) }, icon(ICON.check, 22, 3)));
+    return row;
+  }
+  function onSetInput(i, j, f, raw) {
+    const ex = state.work.exercises[i], st = ex.sets[j];
+    st[f] = f === "w" ? parseNum(raw) : f === "s" ? parseSecs(raw) : parseNum(raw, true);
+    if (st.w == null && st.r == null && st.s == null && st.d) { st.d = false; syncRow(i, j); }
+    scheduleCommit();
+    refreshMarkers(i);
+  }
+  function rowEl(i, j) { return document.querySelector('.ex[data-ex="' + i + '"] .setrow[data-set="' + j + '"]'); }
+  function syncRow(i, j) {
+    const ex = state.work.exercises[i], st = ex.sets[j], row = rowEl(i, j);
+    if (!row) return;
+    TYPES[ex.type].fields.forEach(f => {
+      const inp = row.querySelector('[data-f="' + f + '"]');
+      if (inp && document.activeElement !== inp) inp.value = st[f] != null ? fmtVal(st[f], f) : "";
+    });
+    row.classList.toggle("done", !!st.d);
+    const chk = row.querySelector(".check");
+    chk.setAttribute("aria-pressed", String(!!st.d));
+    chk.setAttribute("aria-label", st.d ? "Set " + (j + 1) + " done, tap to undo" : "Mark set " + (j + 1) + " done");
+  }
+  function toggleDone(i, j) {
+    const ex = state.work.exercises[i], st = ex.sets[j], t = TYPES[ex.type];
+    if (st.d) { st.d = false; }
+    else {
+      if (t.fields.every(f => st[f] == null)) {
+        const last = lastTime(ex.name, state.date), prev = last && last.sets[j];
+        if (prev && t.fields.some(f => prev[f] != null)) t.fields.forEach(f => { if (prev[f] != null) st[f] = prev[f]; });
+      }
+      if (!complete(st, ex.type)) {
+        const missing = t.fields.find(f => st[f] == null) || t.fields[t.fields.length - 1];
+        const row = rowEl(i, j), inp = row && row.querySelector('[data-f="' + missing + '"]');
+        if (inp) inp.focus();
+        return;
+      }
+      st.d = true;
+      startRest();
+    }
+    syncRow(i, j);
+    scheduleCommit();
+    refreshMarkers(i);
+  }
+  function refreshMarkers(i, root) {
+    const ex = state.work.exercises[i];
+    if (!ex) return;
+    root = root || document.querySelector('.ex[data-ex="' + i + '"]');
+    if (!root) return;
+    const last = lastTime(ex.name, state.date), best = prevBest(ex.name, ex.type, state.date);
+    let prIdx = -1, top = best;
+    if (best > 0) ex.sets.forEach((st, j) => { const sc = prScore(st, ex.type); if (sc > top + 1e-9) { top = sc; prIdx = j; } });
+    ex.sets.forEach((st, j) => {
+      const row = root.querySelector('.setrow[data-set="' + j + '"]');
+      if (!row) return;
+      const no = row.querySelector(".setno"), tag = row.querySelector(".tag");
+      const isPr = j === prIdx, up = !isPr && !!last && beat(st, last.sets[j], ex.type);
+      const txt = isPr ? "PR" : up ? "\u25b2" : "";
+      if (tag.textContent !== txt) tag.textContent = txt;
+      no.classList.toggle("pr", isPr);
+      no.classList.toggle("up", up);
+      no.title = isPr ? "New personal best" : up ? "Beat last time" : "";
+    });
+    updateSummary();
+  }
+  function replaceExercise(i, focusNote) {
+    const old = document.querySelector('.ex[data-ex="' + i + '"]');
+    if (!old) return;
+    const nu = renderExercise(state.work.exercises[i], i);
+    old.replaceWith(nu);
+    if (focusNote) { const n = nu.querySelector(".note"); if (n) n.focus(); }
+  }
+
+  /* editing the day's list */
+  function savePlan() {
+    planState = { days: plan, updatedAt: Date.now() };
+    lsSet(LS.plan, planState);
+    remote.push(PLAN_ID, false);
+  }
+  function afterPlanChange() { savePlan(); state.work = buildWork(state.date, state.day); render(); }
+  function editTools(i) {
+    const n = plan[state.day].length;
+    return h("div", { class: "edit-tools" },
+      h("button", { class: "iconbtn", title: "Move up", "aria-label": "Move up", disabled: i === 0, onclick: () => movePlan(i, -1) }, icon(ICON.up, 18, 2.5)),
+      h("button", { class: "iconbtn", title: "Move down", "aria-label": "Move down", disabled: i >= n - 1, onclick: () => movePlan(i, 1) }, icon(ICON.down, 18, 2.5)),
+      confirmButton("rm:" + state.day + ":" + i, () => icon(ICON.x, 18, 2.5), "Remove", "Remove from this day", () => { commitWork(false); plan[state.day].splice(i, 1); afterPlanChange(); }, "iconbtn danger"));
+  }
+  function movePlan(i, dir) {
+    const arr = plan[state.day], j = i + dir;
+    if (j < 0 || j >= arr.length) return;
+    commitWork(false);
+    const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+    afterPlanChange();
+  }
+  function renderLogFoot() {
+    const foot = h("div", { class: "logfoot" });
+    if (!state.editing) {
+      foot.append(h("button", { class: "btn ghost", text: "Edit exercises", onclick: () => { state.editing = true; render(); } }));
+      return foot;
+    }
+    const known = knownExercises();
+    const listId = "ex-names";
+    const name = h("input", { class: "field", type: "text", maxlength: "60", placeholder: "Exercise name", "aria-label": "Exercise name", list: listId, autocomplete: "off" });
+    const type = h("select", { class: "field", "aria-label": "How you log it" }, Object.keys(TYPES).map(k => h("option", { value: k, text: TYPES[k].label })));
+    const msg = h("p", { class: "formmsg", role: "alert" });
+    name.addEventListener("input", () => {
+      msg.textContent = "";
+      const hit = known.find(e => norm(e.name) === norm(name.value));
+      if (hit) type.value = hit.type;
+    });
+    const add = () => {
+      const n = name.value.trim().replace(/\s+/g, " ").slice(0, 60);
+      if (!n) { msg.textContent = "Type a name first."; name.focus(); return; }
+      if (plan[state.day].some(e => norm(e.name) === norm(n))) { msg.textContent = n + " is already on this day."; return; }
+      commitWork(false);
+      plan[state.day].push({ name: n, type: type.value, note: "" });
+      afterPlanChange();
+    };
+    name.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); add(); } });
+    foot.append(h("div", { class: "addform" },
+      h("h3", { text: "Add an exercise to " + dayObj(state.day).name }),
+      name, h("datalist", { id: listId }, known.map(e => h("option", { value: e.name }))),
+      h("div", { class: "addrow" }, type, h("button", { class: "btn", text: "Add", onclick: add })),
+      msg));
+    foot.append(h("div", { class: "foot-row" },
+      h("button", { class: "btn ghost", text: "Done editing", onclick: () => { state.editing = false; render(); } }),
+      confirmButton("reset:" + state.day, "Reset to the original list", "Tap again to reset", null, () => {
+        commitWork(false);
+        plan[state.day] = sanitizePlan(DEFAULT_PLAN)[state.day];
+        afterPlanChange();
+      }, "textbtn dim")));
+    return foot;
+  }
+
+  /* ---------------- Rendering: History ---------------- */
+  function sessionStats(s) {
+    let sets = 0, vol = 0;
+    s.exercises.forEach(ex => ex.sets.forEach(st => {
+      if (!complete(st, ex.type)) return;
+      sets++;
+      if (ex.type === "wr") vol += (st.w || 0) * (st.r || 0);
+    }));
+    return { sets: sets, vol: vol };
+  }
+  function renderHistory(main) {
+    const all = sortedSessions(), today = todayYmd(), year = parseYmd(today).getFullYear();
+    main.append(h("section", { class: "prog-head" }, h("h1", { class: "page-title", text: "Road to Dec 31" }), yearGrid(all), (function () {
+      const left = Math.max(0, Math.ceil(daysBetween(today, year + "-12-31") / 7));
+      const t = parseYmd(today), sun = ymd(new Date(t.getFullYear(), t.getMonth(), t.getDate() - t.getDay()));
+      const thisWeek = all.filter(s => s.date >= sun && s.date <= today).length;
+      const txt = all.length
+        ? plural(all.length, "workout") + " logged, " + thisWeek + " this week. " + plural(left, "week") + " left in " + year + "."
+        : "Each day you log fills a square. " + plural(left, "week") + " left in " + year + ".";
+      return h("p", { class: "caption", text: txt });
+    })()));
+    main.append(h("h2", { class: "sec-title", text: "Workouts" }));
+    if (!all.length) main.append(h("p", { class: "empty", text: "No workouts yet. Log a set on the Log tab and it shows up here." }));
+    else main.append(h("div", { class: "sess-list" }, all.map(sessionItem)));
+    if (downloadsNs && all.length) {
+      const msg = h("p", { role: "status" });
+      main.append(h("div", { class: "export" }, h("button", { class: "btn ghost", text: "Export CSV", onclick: () => exportCsv(msg) }), msg));
+    }
+  }
+  function yearGrid(all) {
+    const todayS = todayYmd(), today = parseYmd(todayS), year = today.getFullYear();
+    const byDate = new Map();
+    all.forEach(s => { if (!byDate.has(s.date)) byDate.set(s.date, []); byDate.get(s.date).push(s.dayName); });
+    let startS = all.length ? all[all.length - 1].date : todayS;
+    if (startS < year + "-01-01") startS = year + "-01-01";
+    if (startS > todayS) startS = todayS;
+    const start = parseYmd(startS), end = new Date(year, 11, 31);
+    const g0 = new Date(start.getFullYear(), start.getMonth(), start.getDate() - start.getDay());
+    const weeks = Math.floor(Math.round((end - g0) / 86400000) / 7) + 1;
+    const STEP = 16, CELL = 13, TOP = 16, W = weeks * STEP, H = TOP + 7 * STEP;
+    const svg = sv("svg", { class: "yeargrid", width: W, height: H, viewBox: "0 0 " + W + " " + H, role: "img",
+      "aria-label": "Training days from " + fmtShort(startS) + " to Dec 31: " + plural(byDate.size, "day") + " trained" });
+    let lastLabel = -10;
+    for (let c = 0; c < weeks; c++) {
+      let label = null;
+      for (let r = 0; r < 7; r++) {
+        const d = new Date(g0.getFullYear(), g0.getMonth(), g0.getDate() + c * 7 + r);
+        if (d > end) break;
+        const ds = ymd(d);
+        if (ds < startS) continue;
+        if (label == null && (d.getDate() === 1 || ds === startS)) label = MON[d.getMonth()];
+        const trained = byDate.has(ds);
+        let cls = trained ? "c-trained" : ds > todayS ? "c-future" : "c-rest";
+        if (ds === todayS) cls += " c-today";
+        const rect = sv("rect", { class: cls, x: c * STEP, y: TOP + r * STEP, width: CELL, height: CELL, rx: 2 });
+        rect.appendChild(sv("title", null, fmtMed(ds) + (trained ? ": " + byDate.get(ds).join(", ") : "")));
+        svg.appendChild(rect);
+      }
+      if (label && c - lastLabel >= 2) { svg.appendChild(sv("text", { x: c * STEP, y: 11 }, label)); lastLabel = c; }
+    }
+    return h("div", { class: "grid-wrap" }, svg);
+  }
+  function sessionItem(s) {
+    const st = sessionStats(s);
+    const meta = plural(st.sets, "set") + (st.vol ? ", " + fmtBig(st.vol) + " lb moved" : "");
+    const body = h("div", { class: "s-body" });
+    s.exercises.forEach(ex => {
+      const done = completeSets(ex);
+      body.append(h("p", { class: "s-ex" }, h("b", { text: ex.name }), " ", done.length ? done.map(x => fmtSet(x, ex.type)).join(", ") : "no finished sets", ex.note ? " (" + ex.note + ")" : ""));
+    });
+    body.append(h("div", { class: "s-actions" },
+      h("button", { class: "btn ghost", text: "Open in log", onclick: () => openSession(s) }),
+      confirmButton("del:" + s.id, "Delete workout", "Tap again to delete", null, () => deleteSession(s.id), "textbtn danger")));
+    return h("details", { class: "sess" },
+      h("summary", null, h("span", { class: "s-date", text: fmtMed(s.date) }), h("span", { class: "s-day", text: s.dayName }), h("span", { class: "s-meta", text: meta })),
+      body);
+  }
+  function deleteSession(id) {
+    delete sessions[id];
+    if (synced[id] != null) { pendingDeletes.add(id); saveDeletes(); }
+    sessionsChanged();
+    remote.push(id, true);
+    state.work = buildWork(state.date, state.day);
+    render();
+  }
+  function csvCell(v) {
+    let s = String(v == null ? "" : v);
+    if (/^[=+@]/.test(s)) s = "'" + s;
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  async function exportCsv(msg) {
+    const rows = [["Date", "Day", "Exercise", "Set", "Weight (lb)", "Reps", "Seconds", "Done", "Note"]];
+    sortedSessions().slice().reverse().forEach(s => s.exercises.forEach(ex => ex.sets.forEach((st, j) =>
+      rows.push([s.date, s.dayName, ex.name, j + 1, st.w, st.r, st.s, st.d ? "yes" : "", j === 0 ? ex.note : ""]))));
+    const csv = rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+    try {
+      await downloadsNs.save({ filename: "workout-log-" + todayYmd() + ".csv", data: csv });
+      msg.textContent = "Exported.";
+    } catch (e) {
+      const c = e && e.code;
+      msg.textContent = c === "declined" ? "" : c === "rate_limited" ? "A save prompt is already open." : "Export isn't available here.";
+    }
+  }
+
+  /* ---------------- Rendering: Progress ---------------- */
+  function exerciseNamesWithData() {
+    const seen = new Map();
+    sortedSessions().forEach(s => s.exercises.forEach(ex => {
+      if (!seen.has(norm(ex.name)) && completeSets(ex).length) seen.set(norm(ex.name), { name: ex.name, type: ex.type });
+    }));
+    return Array.from(seen.values());
+  }
+  function exerciseHistory(name) {
+    const out = [];
+    sortedSessions().slice().reverse().forEach(s => {
+      const ex = findEx(s, name);
+      if (ex) { const sets = completeSets(ex); if (sets.length) out.push({ date: s.date, sets: sets, type: ex.type }); }
+    });
+    return out;
+  }
+  function renderProgress(main) {
+    const head = h("section", { class: "prog-head" }, h("h1", { class: "page-title", text: "Progress" }));
+    main.append(head);
+    const names = exerciseNamesWithData();
+    const req = state.progressEx;
+    if (req && !names.some(n => norm(n.name) === norm(req))) names.unshift({ name: req, type: typeOf(req), empty: true });
+    if (!names.length) { main.append(h("p", { class: "empty", text: "Log a few sets and each exercise gets its own chart here." })); return; }
+    const cur = names.find(n => norm(n.name) === norm(req)) || names[0];
+    const metrics = METRICS[cur.type];
+    const metric = metrics.find(m => m.key === state.progressMetric[cur.type]) || metrics[0];
+    const sel = h("select", { class: "field", "aria-label": "Exercise" }, names.map(n => h("option", { value: n.name, text: n.name, selected: n === cur })));
+    sel.addEventListener("change", () => { state.progressEx = sel.value; saveUi(); render(); });
+    const seg = h("div", { class: "seg", role: "group", "aria-label": "Chart shows" }, metrics.map(m =>
+      h("button", { "aria-pressed": String(m === metric), text: m.label, onclick: () => { state.progressMetric[cur.type] = m.key; render(); } })));
+    head.append(h("div", { class: "prog-controls" }, sel, metrics.length > 1 ? seg : null));
+    const hist = cur.empty ? [] : exerciseHistory(cur.name);
+    if (!hist.length) { main.append(h("p", { class: "empty", text: "No sets logged for " + cur.name + " yet. Finish a set on the Log tab and it shows up here." })); return; }
+    const points = hist.map(x => ({ date: x.date, y: metric.f(x.sets) })).filter(p => p.y > 0);
+    let run = 0;
+    points.forEach(p => { p.pr = run > 0 && p.y > run + 1e-9; run = Math.max(run, p.y); });
+    const wrap = h("div", { class: "chart-wrap" });
+    main.append(wrap);
+    chartCtx = { wrap: wrap, points: points, metric: metric, name: cur.name };
+    drawChart(chartCtx);
+    if (points.some(p => p.pr)) main.append(h("p", { class: "legend" }, h("i"), "New best"));
+
+    // stats
+    let bestSet = null, bestDate = "", bestScore = 0;
+    hist.forEach(x => x.sets.forEach(st => { const sc = prScore(st, cur.type); if (sc > bestScore) { bestScore = sc; bestSet = st; bestDate = x.date; } }));
+    const stats = h("ul", { class: "stats" });
+    if (bestSet) stats.append(h("li", null, "Best set: ", h("b", { text: fmtSet(bestSet, cur.type) }), " on " + fmtShort(bestDate)));
+    if (cur.type === "wr" && bestSet && bestSet.w > 0) stats.append(h("li", null, "Est. 1RM: ", h("b", { text: fmtBig(e1rm(bestSet.w, bestSet.r)) + " lb" })));
+    if (points.length >= 2) {
+      const diff = points[points.length - 1].y - points[0].y;
+      stats.append(h("li", null, metric.label + ": ", h("b", { text: (diff >= 0 ? "+" : "-") + fmtMetric(Math.abs(diff), metric.unit) }), " since " + fmtShort(points[0].date)));
+    }
+    stats.append(h("li", { text: "Logged " + plural(hist.length, "time") + " since " + fmtShort(hist[0].date) + "." }));
+    main.append(stats);
+
+    // table
+    const rows = hist.slice().reverse().map(x => h("tr", null,
+      h("td", { text: fmtShort(x.date) }),
+      h("td", { text: x.sets.map(st => fmtSet(st, cur.type)).join(", ") }),
+      h("td", { text: fmtMetric(metric.f(x.sets), metric.unit) })));
+    main.append(h("div", { class: "table-wrap" }, h("table", { class: "ptable" },
+      h("thead", null, h("tr", null, h("th", { text: "Date" }), h("th", { text: "Sets" }), h("th", { text: metric.label }))),
+      h("tbody", null, rows))));
+  }
+  function drawChart(ctx) {
+    const wrap = ctx.wrap, points = ctx.points, metric = ctx.metric;
+    wrap.textContent = "";
+    if (!points.length) { wrap.append(h("p", { class: "empty", text: "Nothing to chart for " + metric.label.toLowerCase() + " yet." })); return; }
+    const W = Math.max(280, Math.floor(wrap.clientWidth || 320)), H = 220, L = 52, R = 18, T = 28, B = 28;
+    const xs = points.map(p => parseYmd(p.date).getTime()), ys = points.map(p => p.y);
+    const x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+    const dMin = Math.min.apply(null, ys), dMax = Math.max.apply(null, ys);
+    let y0 = dMin, y1 = dMax;
+    if (y1 - y0 < 1e-9) { const p = Math.max(1, Math.abs(y1) * 0.1); y0 -= p; y1 += p; }
+    else { const p = (y1 - y0) * 0.15; y0 -= p; y1 += p; }
+    if (y0 < 0) y0 = 0;
+    const X = t => x1 === x0 ? (L + W - R) / 2 : L + (t - x0) / (x1 - x0) * (W - L - R);
+    const Y = v => T + (1 - (v - y0) / (y1 - y0)) * (H - T - B);
+    const svg = sv("svg", { class: "chart", width: W, height: H, viewBox: "0 0 " + W + " " + H, role: "img",
+      "aria-label": metric.label + " for " + ctx.name + " across " + plural(points.length, "session") + ", latest " + fmtMetric(ys[ys.length - 1], metric.unit) });
+    const ticks = dMax - dMin < 1e-9 ? [dMin] : [dMin, (dMin + dMax) / 2, dMax];
+    ticks.forEach(v => {
+      const y = Y(v).toFixed(1);
+      svg.appendChild(sv("line", { class: "grid", x1: L, x2: W - R, y1: y, y2: y }));
+      svg.appendChild(sv("text", { x: L - 8, y: +y + 4, "text-anchor": "end" }, fmtAxis(v, metric.unit)));
+    });
+    svg.appendChild(sv("text", { x: X(x0), y: H - 8, "text-anchor": x1 === x0 ? "middle" : "start" }, fmtShort(points[0].date)));
+    if (x1 !== x0) svg.appendChild(sv("text", { x: W - R, y: H - 8, "text-anchor": "end" }, fmtShort(points[points.length - 1].date)));
+    if (points.length > 1) svg.appendChild(sv("path", { class: "line", d: points.map((p, k) => (k ? "L" : "M") + X(xs[k]).toFixed(1) + " " + Y(p.y).toFixed(1)).join(" ") }));
+    points.forEach((p, k) => {
+      const c = sv("circle", { class: "dot" + (p.pr ? " pr" : ""), cx: X(xs[k]).toFixed(1), cy: Y(p.y).toFixed(1), r: p.pr ? 5 : 4 });
+      c.appendChild(sv("title", null, fmtShort(p.date) + ": " + fmtMetric(p.y, metric.unit) + (p.pr ? ", new best" : "")));
+      svg.appendChild(c);
+    });
+    const lx = X(xs[xs.length - 1]), ly = Y(ys[ys.length - 1]);
+    svg.appendChild(sv("text", { class: "val", x: points.length === 1 ? lx : Math.min(lx, W - R), y: Math.max(16, ly - 12), "text-anchor": points.length === 1 ? "middle" : "end" }, fmtMetric(ys[ys.length - 1], metric.unit)));
+    wrap.appendChild(svg);
+  }
+  let resizeTimer = null;
+  window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (chartCtx) drawChart(chartCtx); }, 150); });
+
+  /* ---------------- Rest timer ---------------- */
+  const rest = { start: 0, timer: null };
+  function tickRest() {
+    const s = Math.floor((Date.now() - rest.start) / 1000);
+    $("#rest-time").textContent = Math.floor(s / 60) + ":" + pad2(s % 60);
+    if (s >= 600) stopRest();
+  }
+  function startRest() {
+    rest.start = Date.now();
+    $("#restbar").hidden = false;
+    document.body.classList.add("resting");
+    tickRest();
+    clearInterval(rest.timer);
+    rest.timer = setInterval(tickRest, 500);
+  }
+  function stopRest() {
+    clearInterval(rest.timer);
+    $("#restbar").hidden = true;
+    document.body.classList.remove("resting");
+  }
+  $("#rest-hide").addEventListener("click", stopRest);
+
+  /* ---------------- Sync ---------------- */
+  function updateStatus() {
+    const el = $("#status");
+    let st, txt, tip;
+    if (remote.mode === "local") { st = "local"; txt = "Saved on device"; tip = "Saved in this browser only"; }
+    else if (remote.error) { st = "error"; txt = remote.error; tip = "Your sets are saved in this browser and will sync when the connection is back"; }
+    else if (remote.mode === "connecting") { st = "saving"; txt = "Connecting"; tip = "Loading your saved workouts"; }
+    else if (remote.pending.size) { st = "saving"; txt = "Saving"; tip = "Saving your latest sets"; }
+    else { st = "saved"; txt = "Saved"; tip = "Saved to your account"; }
+    el.dataset.state = st; el.textContent = txt; el.title = tip;
+  }
+  async function withRetry(fn) {
+    try { return await fn(); }
+    catch (e) {
+      if (e && e.code === "unavailable") { await sleep(500 + Math.random() * 900); return await fn(); }
+      throw e;
+    }
+  }
+  const FATAL = ["revoked", "not_granted", "capability_disabled", "capability_removed", "invalid_argument", "transform_error"];
+  const remote = {
+    mode: "connecting", error: null, rootRef: null, col: null,
+    timers: {}, inflight: {}, again: {}, pending: new Set(), retryTimer: null, lastSync: 0, syncing: false,
+    push(id, now) {
+      if (remote.mode !== "cloud") { updateStatus(); return; }
+      remote.pending.add(id);
+      clearTimeout(remote.timers[id]);
+      remote.timers[id] = setTimeout(() => { delete remote.timers[id]; remote.flush(id); }, now ? 0 : 900);
+      updateStatus();
+    },
+    flushAll() {
+      Object.keys(remote.timers).forEach(id => { clearTimeout(remote.timers[id]); delete remote.timers[id]; remote.flush(id); });
+    },
+    async flush(id) {
+      if (remote.mode !== "cloud") return;
+      if (remote.inflight[id]) { remote.again[id] = true; return; }
+      remote.inflight[id] = true;
+      let ok = false;
+      try {
+        if (id === PLAN_ID) {
+          if (planState) await withRetry(() => remote.rootRef.set(clone({ plan: planState.days, planUpdatedAt: planState.updatedAt })));
+        } else {
+          const body = sessions[id], ref = remote.col.doc(id);
+          if (body) {
+            const at = body.updatedAt;
+            await withRetry(() => ref.set(clone(body)));
+            synced[id] = at;
+          } else if (synced[id] != null || pendingDeletes.has(id)) {
+            await withRetry(() => ref.delete());
+            delete synced[id];
+            pendingDeletes.delete(id);
+            saveDeletes();
+          }
+          lsSet(LS.synced, synced);
+        }
+        ok = true;
+        remote.error = null;
+      } catch (e) {
+        remote.onError(e);
+      }
+      remote.inflight[id] = false;
+      if (remote.again[id]) { remote.again[id] = false; remote.flush(id); return; }
+      if (ok) remote.pending.delete(id);
+      updateStatus();
+    },
+    onError(e) {
+      const code = e && e.code;
+      if (FATAL.indexOf(code) >= 0) { remote.goLocal(); return; }
+      remote.error = code === "quota_exceeded" ? "Cloud full" : "Retrying sync";
+      clearTimeout(remote.retryTimer);
+      remote.retryTimer = setTimeout(() => { remote.error = null; Array.from(remote.pending).forEach(id => remote.flush(id)); }, code === "quota_exceeded" ? 60000 : 15000);
+    },
+    goLocal() {
+      remote.mode = "local";
+      Object.keys(remote.timers).forEach(id => clearTimeout(remote.timers[id]));
+      remote.timers = {}; remote.pending.clear(); remote.error = null;
+      clearTimeout(remote.retryTimer);
+      updateStatus();
+    },
+    async sync() {
+      if (remote.syncing || !remote.col) return;
+      remote.syncing = true;
+      try {
+        commitWork(false);
+        const res = await Promise.all([withRetry(() => remote.rootRef.get()), withRetry(() => remote.col.limit(1000).get())]);
+        const out = mergeRemote(res[0], res[1]);
+        remote.mode = "cloud"; remote.error = null; remote.lastSync = Date.now();
+        out.toPush.forEach(id => remote.push(id, true));
+        if (out.planPush) remote.push(PLAN_ID, true);
+        if (out.changed) {
+          const f = captureFocus();
+          if (state.view === "log") state.work = buildWork(state.date, state.day);
+          render();
+          restoreFocus(f);
+        }
+      } catch (e) {
+        const code = e && e.code;
+        if (FATAL.indexOf(code) >= 0) remote.goLocal();
+        else { remote.error = remote.mode === "cloud" ? "Retrying sync" : null; setTimeout(() => remote.sync(), 20000); }
+      } finally {
+        remote.syncing = false;
+        updateStatus();
+      }
+    }
+  };
+  function mergeRemote(rootSnap, qs) {
+    let changed = false;
+    const toPush = [], remoteIds = new Set();
+    qs.docs.forEach(doc => {
+      const r = sanitizeSession(doc.id, doc.data());
+      if (!r) return;
+      remoteIds.add(doc.id);
+      if (pendingDeletes.has(doc.id) && !sessions[doc.id]) { toPush.push(doc.id); return; }
+      const l = sessions[doc.id];
+      if (l && (l.updatedAt || 0) > (r.updatedAt || 0)) { toPush.push(doc.id); return; }
+      if (!l || JSON.stringify(l) !== JSON.stringify(r)) { sessions[doc.id] = r; changed = true; }
+      synced[doc.id] = r.updatedAt || 0;
+    });
+    Object.keys(sessions).forEach(id => {
+      if (remoteIds.has(id)) return;
+      if (synced[id] != null && (sessions[id].updatedAt || 0) <= synced[id]) { delete sessions[id]; delete synced[id]; changed = true; }
+      else toPush.push(id);
+    });
+    Array.from(pendingDeletes).forEach(id => { if (!remoteIds.has(id)) { pendingDeletes.delete(id); delete synced[id]; } });
+    let planPush = false;
+    const rd = rootSnap && rootSnap.exists ? rootSnap.data() : null;
+    if (rd && rd.plan && typeof rd.plan === "object") {
+      const rAt = +rd.planUpdatedAt || 0, lAt = planState ? planState.updatedAt || 0 : -1;
+      if (rAt >= lAt) {
+        const np = sanitizePlan(rd.plan);
+        if (JSON.stringify(np) !== JSON.stringify(plan)) changed = true;
+        plan = np; planState = { days: plan, updatedAt: rAt }; lsSet(LS.plan, planState);
+      } else planPush = true;
+    } else if (planState) planPush = true;
+    sortedCache = null;
+    lsSet(LS.sessions, sessions); lsSet(LS.synced, synced); saveDeletes();
+    return { changed: changed, toPush: toPush, planPush: planPush };
+  }
+  function captureFocus() {
+    const a = document.activeElement;
+    if (!a || !a.dataset || !a.dataset.fk) return null;
+    return { fk: a.dataset.fk, s: a.selectionStart, e: a.selectionEnd };
+  }
+  function restoreFocus(f) {
+    if (!f) return;
+    const el = document.querySelector('[data-fk="' + f.fk + '"]');
+    if (el) { el.focus(); try { el.setSelectionRange(f.s, f.e); } catch (e) {} }
+  }
+  async function connect() {
+    const C = window.claude;
+    if (!C || typeof C.use !== "function") { remote.goLocal(); return; }
+    Promise.resolve(C.use("downloads")).then(d => { downloadsNs = d || null; if (downloadsNs && state.view === "history") render(); }, () => {});
+    let db = null, user = null;
+    try { const r = await Promise.all([C.use("db"), C.use("user")]); db = r[0]; user = r[1]; } catch (e) {}
+    if (!db || !user) { remote.goLocal(); return; }
+    let uid = null;
+    try { uid = await user.id(); } catch (e) {}
+    if (!uid) { remote.goLocal(); return; }
+    try {
+      remote.rootRef = db.doc("data/users/" + uid + "/tracker");
+      remote.col = remote.rootRef.collection("sessions");
+    } catch (e) { remote.goLocal(); return; }
+    await remote.sync();
+  }
+
+  /* ---------------- Lifecycle ---------------- */
+  function rollDate() {
+    const t = todayYmd();
+    if (state.dateIsToday && state.date !== t) {
+      commitWork(false);
+      state.date = t;
+      state.work = buildWork(t, state.day);
+      if (state.view === "log") render();
+    }
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") { commitWork(true); remote.flushAll(); }
+    else {
+      rollDate();
+      if (remote.mode === "cloud" && Date.now() - remote.lastSync > 10 * 60 * 1000) remote.sync();
+    }
+  });
+  window.addEventListener("pagehide", () => { commitWork(true); remote.flushAll(); });
+  document.querySelectorAll(".viewtab").forEach(b => b.addEventListener("click", () => setView(b.dataset.view)));
+
+  migrateOld();
+  state.work = buildWork(state.date, state.day);
+  render();
+  updateStatus();
+  connect();
+})();
+</script>
+</body>
+</html>
