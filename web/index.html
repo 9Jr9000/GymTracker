@@ -184,6 +184,25 @@ body.resting main.wrap { padding-bottom: calc(100px + env(safe-area-inset-bottom
 .rest-label { font-size: 15px; opacity: .8; }
 .rest-time { font-family: var(--display); font-weight: 700; font-size: 34px; font-variant-numeric: tabular-nums; line-height: 1; }
 .rest-hide { margin-left: auto; background: transparent; color: var(--on-ink); border: 1.5px solid currentColor; border-radius: 6px; min-height: 40px; padding: 0 14px; font-weight: 600; }
+.daily-block { border-top: 2px solid var(--ink); padding: 16px 0 20px; }
+.daily-header { font-family: var(--display); font-weight: 600; font-size: 22px; margin: 0 0 10px; }
+.daily-progress { display: flex; gap: 8px; align-items: center; margin: 12px 0; }
+.daily-count { font-family: var(--display); font-weight: 600; font-size: 18px; min-width: 60px; }
+.progress-bar { flex: 1; height: 8px; background: var(--rule); border-radius: 4px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--lift); transition: width .2s ease; }
+.daily-complete { color: var(--lift); font-weight: 700; }
+.daily-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.quick-add { background: var(--field); border: 1.5px solid var(--rule); border-radius: 6px; padding: 8px 12px; font-weight: 600; font-size: 14px; cursor: pointer; transition: all .2s ease; }
+.quick-add:active { background: var(--rule); }
+.daily-input { display: flex; gap: 6px; margin: 10px 0; }
+.daily-input input { flex: 1; }
+.daily-entries { font-size: 14px; color: var(--graphite); margin: 10px 0; line-height: 1.6; }
+.daily-entries strong { color: var(--ink); }
+.daily-undo { color: var(--plate); font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: underline; }
+.daily-stats { background: var(--lift-soft); border-radius: 6px; padding: 12px; margin-top: 16px; font-size: 15px; }
+.daily-stats strong { color: var(--ink); font-weight: 600; }
+.all-done { text-align: center; padding: 20px; background: var(--lift-soft); border-radius: 6px; margin-top: 16px; }
+.all-done-text { font-family: var(--display); font-weight: 700; font-size: 20px; color: var(--ink); }
 @media (prefers-reduced-motion: no-preference) {
   .restbar { animation: rise .18s ease-out; }
   .setno.pr .tag { animation: stamp .28s ease-out; }
@@ -197,6 +216,7 @@ body.resting main.wrap { padding-bottom: calc(100px + env(safe-area-inset-bottom
   <div class="wrap topbar-in">
     <nav class="viewtabs" aria-label="Sections">
       <button type="button" class="viewtab" data-view="log">Log</button>
+      <button type="button" class="viewtab" data-view="daily">Daily</button>
       <button type="button" class="viewtab" data-view="history">History</button>
       <button type="button" class="viewtab" data-view="progress">Progress</button>
     </nav>
@@ -453,6 +473,24 @@ body.resting main.wrap { padding-bottom: calc(100px + env(safe-area-inset-bottom
   const pendingDeletes = new Set(Array.isArray(rawDeletes) ? rawDeletes : []);
   const saveDeletes = () => lsSet(LS.deletes, Array.from(pendingDeletes));
 
+  // Daily challenge storage
+  const LS_DAILY = "wt2.daily";
+  let dailyChallenges = {};
+  (function () {
+    const raw = lsGet(LS_DAILY, {});
+    if (raw && typeof raw === "object") dailyChallenges = raw;
+  })();
+  function saveDailyChallenge(date) {
+    lsSet(LS_DAILY, dailyChallenges);
+    if (remote.dailyCol) remote.pushDaily(date);
+  }
+  function getDailyChallenge(date) {
+    if (!dailyChallenges[date]) {
+      dailyChallenges[date] = { date: date, pushups: [], squats: [], situps: [], updatedAt: Date.now(), createdAt: Date.now() };
+    }
+    return dailyChallenges[date];
+  }
+
   let sortedCache = null;
   function sortedSessions() {
     if (!sortedCache) {
@@ -549,7 +587,10 @@ body.resting main.wrap { padding-bottom: calc(100px + env(safe-area-inset-bottom
     progressEx: typeof ui.progressEx === "string" ? ui.progressEx : null,
     progressMetric: {},
     work: null,
-    confirm: null
+    confirm: null,
+    dailyDate: todayYmd(),
+    dailyDateIsToday: true,
+    dailyPickDate: false
   };
   function saveUi() { lsSet(LS.ui, { day: state.day, progressEx: state.progressEx }); }
   let downloadsNs = null;
@@ -628,6 +669,7 @@ body.resting main.wrap { padding-bottom: calc(100px + env(safe-area-inset-bottom
     chartCtx = null;
     if (state.view === "history") renderHistory(main);
     else if (state.view === "progress") renderProgress(main);
+    else if (state.view === "daily") renderDaily(main);
     else renderLog(main);
   }
   function setView(v) {
@@ -1026,6 +1068,17 @@ body.resting main.wrap { padding-bottom: calc(100px + env(safe-area-inset-bottom
     const rows = [["Date", "Day", "Exercise", "Set", "Weight (lb)", "Reps", "Seconds", "Done", "Note"]];
     sortedSessions().slice().reverse().forEach(s => s.exercises.forEach(ex => ex.sets.forEach((st, j) =>
       rows.push([s.date, s.dayName, ex.name, j + 1, st.w, st.r, st.s, st.d ? "yes" : "", j === 0 ? ex.note : ""]))));
+
+    // Add daily challenges
+    rows.push(["", "", "", "", "", "", "", "", ""]);
+    rows.push(["DAILY CHALLENGES", "", "", "", "", "", "", "", ""]);
+    Object.keys(dailyChallenges).sort().reverse().forEach(date => {
+      const dc = dailyChallenges[date];
+      rows.push([date, "Push-ups", dc.pushups.join(", "), sumOf(dc.pushups, x => x), "", "", "", "", ""]);
+      rows.push([date, "Squats", dc.squats.join(", "), sumOf(dc.squats, x => x), "", "", "", "", ""]);
+      rows.push([date, "Sit-ups", dc.situps.join(", "), sumOf(dc.situps, x => x), "", "", "", "", ""]);
+    });
+
     const csv = rows.map(r => r.map(csvCell).join(",")).join("\r\n");
     try {
       await downloadsNs.save({ filename: "workout-log-" + todayYmd() + ".csv", data: csv });
@@ -1100,6 +1153,94 @@ body.resting main.wrap { padding-bottom: calc(100px + env(safe-area-inset-bottom
       h("thead", null, h("tr", null, h("th", { text: "Date" }), h("th", { text: "Sets" }), h("th", { text: metric.label }))),
       h("tbody", null, rows))));
   }
+
+  /* ---------------- Rendering: Daily Challenge ---------------- */
+  function renderDaily(main) {
+    const today = todayYmd(), daily = getDailyChallenge(state.dailyDate);
+    const hero = h("section", { class: "hero" }, h("h1", { text: "Daily Challenge" }));
+    const dl = h("div", { class: "dateline" });
+    if (state.dailyPickDate) {
+      const inp = h("input", { type: "date", class: "field date-field", value: state.dailyDate, max: today, "aria-label": "Challenge date" });
+      inp.addEventListener("change", () => { if (inp.value) { state.dailyDate = inp.value; state.dailyDateIsToday = inp.value === today; state.dailyPickDate = false; render(); } });
+      dl.append(inp, h("button", { class: "linkbtn", text: "Cancel", onclick: () => { state.dailyPickDate = false; render(); } }));
+    } else {
+      dl.append(h("span", { class: "date-text", text: fmtLong(state.dailyDate) }));
+      if (state.dailyDate !== today) dl.append(h("button", { class: "linkbtn", text: "Back to today", onclick: () => { state.dailyDate = today; state.dailyDateIsToday = true; render(); } }));
+      dl.append(h("button", { class: "linkbtn", text: "Change date", onclick: () => { state.dailyPickDate = true; render(); } }));
+    }
+    hero.append(dl);
+    main.append(hero);
+
+    // Calculate streak
+    const today_d = new Date(today);
+    let streak = 0, daysThisMonth = 0;
+    for (let i = 0; i < 365; i++) {
+      const checkDate = ymd(new Date(today_d.getFullYear(), today_d.getMonth(), today_d.getDate() - i));
+      const dc = dailyChallenges[checkDate];
+      if (dc && dc.pushups.length > 0 && dc.squats.length > 0 && dc.situps.length > 0) {
+        if (sumOf(dc.pushups, x => x) >= 100 && sumOf(dc.squats, x => x) >= 100 && sumOf(dc.situps, x => x) >= 100) {
+          streak++;
+          if (checkDate.slice(0, 7) === today.slice(0, 7)) daysThisMonth++;
+        } else if (i < 1) streak = 0; // break streak if today not complete
+        else break;
+      } else if (i < 1) streak = 0; else break;
+    }
+
+    const movements = [
+      { name: "Push-ups", key: "pushups" },
+      { name: "Squats", key: "squats" },
+      { name: "Sit-ups", key: "situps" }
+    ];
+
+    let allDone = true;
+    movements.forEach(m => {
+      const total = sumOf(daily[m.key], x => x);
+      if (total < 100) allDone = false;
+      const block = h("section", { class: "daily-block" });
+      block.append(h("h2", { class: "daily-header", text: m.name }));
+
+      const pct = Math.min(total / 100, 1);
+      const progress = h("div", { class: "daily-progress" },
+        h("span", { class: "daily-count", text: total + "/100" }),
+        h("div", { class: "progress-bar" }, h("div", { class: "progress-fill", style: "width: " + (pct * 100).toFixed(1) + "%" }))
+      );
+      if (total >= 100) progress.append(h("span", { class: "daily-complete", text: "✓" }));
+      block.append(progress);
+
+      const buttons = h("div", { class: "daily-buttons" });
+      [5, 10, 20, 25].forEach(n => {
+        buttons.append(h("button", { class: "quick-add", text: "+" + n, onclick: () => { daily[m.key].push(n); saveDailyChallenge(state.dailyDate); render(); } }));
+      });
+      block.append(buttons);
+
+      const inp = h("input", { class: "field", type: "number", min: "1", max: "100", placeholder: "Custom amount", "aria-label": m.name + " custom amount" });
+      const addBtn = h("button", { class: "btn", text: "Add", onclick: () => {
+        const val = parseNum(inp.value, true);
+        if (val && val > 0) { daily[m.key].push(val); inp.value = ""; saveDailyChallenge(state.dailyDate); render(); }
+      } });
+      inp.addEventListener("keydown", e => { if (e.key === "Enter") addBtn.click(); });
+      block.append(h("div", { class: "daily-input" }, inp, addBtn));
+
+      if (daily[m.key].length > 0) {
+        const entries = daily[m.key].map(v => String(v)).join(", ");
+        const undoBtn = h("span", { class: "daily-undo", text: "Undo", onclick: () => { daily[m.key].pop(); saveDailyChallenge(state.dailyDate); render(); } });
+        block.append(h("div", { class: "daily-entries" }, h("strong", { text: entries }), " ", undoBtn));
+      }
+
+      main.append(block);
+    });
+
+    if (allDone) {
+      main.append(h("div", { class: "all-done" }, h("div", { class: "all-done-text", text: "🎉 Completed!" })));
+    }
+
+    // Stats
+    const stats = h("div", { class: "daily-stats" });
+    stats.append(h("div", { text: "Current streak: " + h("strong", { text: plural(streak, "day") }) }));
+    stats.append(h("div", { text: "Days completed this month: " + h("strong", { text: daysThisMonth }) }));
+    main.append(stats);
+  }
+
   function drawChart(ctx) {
     const wrap = ctx.wrap, points = ctx.points, metric = ctx.metric;
     wrap.textContent = "";
@@ -1179,8 +1320,8 @@ body.resting main.wrap { padding-bottom: calc(100px + env(safe-area-inset-bottom
   }
   const FATAL = ["revoked", "not_granted", "capability_disabled", "capability_removed", "invalid_argument", "transform_error"];
   const remote = {
-    mode: "connecting", error: null, rootRef: null, col: null,
-    timers: {}, inflight: {}, again: {}, pending: new Set(), retryTimer: null, lastSync: 0, syncing: false,
+    mode: "connecting", error: null, rootRef: null, col: null, dailyCol: null,
+    timers: {}, inflight: {}, again: {}, pending: new Set(), dailyTimers: {}, dailyInflight: {}, dailyAgain: {}, dailyPending: new Set(), retryTimer: null, lastSync: 0, syncing: false,
     push(id, now) {
       if (remote.mode !== "cloud") { updateStatus(); return; }
       remote.pending.add(id);
@@ -1188,8 +1329,36 @@ body.resting main.wrap { padding-bottom: calc(100px + env(safe-area-inset-bottom
       remote.timers[id] = setTimeout(() => { delete remote.timers[id]; remote.flush(id); }, now ? 0 : 900);
       updateStatus();
     },
+    pushDaily(date) {
+      if (remote.mode !== "cloud" || !remote.dailyCol) return;
+      remote.dailyPending.add(date);
+      clearTimeout(remote.dailyTimers[date]);
+      remote.dailyTimers[date] = setTimeout(() => { delete remote.dailyTimers[date]; remote.flushDaily(date); }, 900);
+    },
     flushAll() {
       Object.keys(remote.timers).forEach(id => { clearTimeout(remote.timers[id]); delete remote.timers[id]; remote.flush(id); });
+      Object.keys(remote.dailyTimers).forEach(date => { clearTimeout(remote.dailyTimers[date]); delete remote.dailyTimers[date]; remote.flushDaily(date); });
+    },
+    async flushDaily(date) {
+      if (remote.mode !== "cloud" || !remote.dailyCol) return;
+      if (remote.dailyInflight[date]) { remote.dailyAgain[date] = true; return; }
+      remote.dailyInflight[date] = true;
+      let ok = false;
+      try {
+        const body = dailyChallenges[date];
+        if (body) {
+          body.updatedAt = Date.now();
+          await withRetry(() => remote.dailyCol.doc(date).set(clone(body)));
+        }
+        ok = true;
+        remote.error = null;
+      } catch (e) {
+        remote.onError(e);
+      }
+      remote.dailyInflight[date] = false;
+      if (remote.dailyAgain[date]) { remote.dailyAgain[date] = false; remote.flushDaily(date); return; }
+      if (ok) remote.dailyPending.delete(date);
+      updateStatus();
     },
     async flush(id) {
       if (remote.mode !== "cloud") return;
@@ -1242,14 +1411,19 @@ body.resting main.wrap { padding-bottom: calc(100px + env(safe-area-inset-bottom
       remote.syncing = true;
       try {
         commitWork(false);
-        const res = await Promise.all([withRetry(() => remote.rootRef.get()), withRetry(() => remote.col.limit(1000).get())]);
-        const out = mergeRemote(res[0], res[1]);
+        const promises = [withRetry(() => remote.rootRef.get()), withRetry(() => remote.col.limit(1000).get())];
+        if (remote.dailyCol) promises.push(withRetry(() => remote.dailyCol.limit(1000).get()));
+        const res = await Promise.all(promises);
+        const dailySnap = remote.dailyCol ? res[2] : null;
+        const out = mergeRemote(res[0], res[1], dailySnap);
         remote.mode = "cloud"; remote.error = null; remote.lastSync = Date.now();
         out.toPush.forEach(id => remote.push(id, true));
         if (out.planPush) remote.push(PLAN_ID, true);
+        out.dailyToPush.forEach(date => remote.pushDaily(date));
         if (out.changed) {
           const f = captureFocus();
           if (state.view === "log") state.work = buildWork(state.date, state.day);
+          if (state.view === "daily") render();
           render();
           restoreFocus(f);
         }
@@ -1263,7 +1437,7 @@ body.resting main.wrap { padding-bottom: calc(100px + env(safe-area-inset-bottom
       }
     }
   };
-  function mergeRemote(rootSnap, qs) {
+  function mergeRemote(rootSnap, qs, dailySnap) {
     let changed = false;
     const toPush = [], remoteIds = new Set();
     qs.docs.forEach(doc => {
@@ -1292,9 +1466,26 @@ body.resting main.wrap { padding-bottom: calc(100px + env(safe-area-inset-bottom
         plan = np; planState = { days: plan, updatedAt: rAt }; lsSet(LS.plan, planState);
       } else planPush = true;
     } else if (planState) planPush = true;
+
+    // Merge daily challenges
+    const dailyToPush = [];
+    if (dailySnap) {
+      const remoteDaily = new Set();
+      dailySnap.docs.forEach(doc => {
+        remoteDaily.add(doc.id);
+        const rd = doc.data(), ld = dailyChallenges[doc.id];
+        if (ld && (ld.updatedAt || 0) > (rd.updatedAt || 0)) { dailyToPush.push(doc.id); return; }
+        if (!ld || JSON.stringify(ld) !== JSON.stringify(rd)) { dailyChallenges[doc.id] = rd; changed = true; }
+      });
+      Object.keys(dailyChallenges).forEach(date => {
+        if (!remoteDaily.has(date)) dailyToPush.push(date);
+      });
+      lsSet(LS_DAILY, dailyChallenges);
+    }
+
     sortedCache = null;
     lsSet(LS.sessions, sessions); lsSet(LS.synced, synced); saveDeletes();
-    return { changed: changed, toPush: toPush, planPush: planPush };
+    return { changed: changed, toPush: toPush, planPush: planPush, dailyToPush: dailyToPush };
   }
   function captureFocus() {
     const a = document.activeElement;
@@ -1319,6 +1510,7 @@ body.resting main.wrap { padding-bottom: calc(100px + env(safe-area-inset-bottom
     try {
       remote.rootRef = db.doc("data/users/" + uid + "/tracker");
       remote.col = remote.rootRef.collection("sessions");
+      remote.dailyCol = remote.rootRef.collection("daily");
     } catch (e) { remote.goLocal(); return; }
     await remote.sync();
   }
